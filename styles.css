@@ -812,6 +812,184 @@ body {
     background: var(--text-secondary);
 }
 
+/* Auth Overlay */
+.auth-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-primary);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-overlay.active {
+    display: flex;
+}
+
+.auth-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    width: 400px;
+    max-width: 90vw;
+    text-align: center;
+}
+
+.auth-logo {
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+
+.auth-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 28px;
+}
+
+.btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    background: white;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-google:hover {
+    background: #f5f5f5;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.auth-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.auth-form-actions .btn {
+    flex: 1;
+}
+
+.auth-error {
+    margin-top: 16px;
+    padding: 10px;
+    background: rgba(255, 118, 117, 0.15);
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    color: var(--red);
+    font-size: 0.85rem;
+}
+
+/* Sidebar Bottom (User Info, Sharing) */
+.sidebar-bottom {
+    margin-top: auto;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+}
+
+.user-name {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Workspace Switcher */
+.workspace-switcher {
+    margin-bottom: 10px;
+}
+
+.workspace-switcher label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.workspace-switcher select {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+
+/* Shared Users List */
+.shared-users-list h4 {
+    color: var(--text-secondary);
+}
+
+.shared-user-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+}
+
+.shared-user-item:last-child {
+    border-bottom: none;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .kanban-board {
@@ -844,6 +1022,20 @@ body {
     .nav-links a {
         font-size: 0;
         padding: 14px 20px;
+    }
+
+    .sidebar-bottom {
+        padding: 8px;
+    }
+
+    .user-name,
+    .workspace-switcher,
+    #btn-share-workspace {
+        display: none !important;
+    }
+
+    .user-info {
+        justify-content: center;
     }
 
     .main-content {

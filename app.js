@@ -3,8 +3,13 @@
 
     // ─── State ──────────────────────────────────────────────
     const STATE_KEY = 'taskflow_state';
-    let state = loadState();
+    let state = defaultState();
     let calendarOffset = 0; // weeks from current
+    let currentWorkspaceId = null;
+    let currentUserEmail = null;
+    let isWorkspaceOwner = false;
+    let snapshotUnsubscribe = null;
+    let saveTimeout = null;
 
     function defaultState() {
         return {
@@ -14,16 +19,63 @@
         };
     }
 
-    function loadState() {
+    function loadLocalState() {
         try {
             const raw = localStorage.getItem(STATE_KEY);
             if (raw) return JSON.parse(raw);
         } catch (e) { /* ignore */ }
-        return defaultState();
+        return null;
+    }
+
+    async function loadStateFromFirestore(workspaceId) {
+        try {
+            const doc = await db.collection('workspaces').doc(workspaceId).get();
+            if (doc.exists) {
+                const data = doc.data();
+                return {
+                    tasks: data.tasks || [],
+                    members: data.members || [],
+                    activityLog: data.activityLog || [],
+                };
+            }
+        } catch (e) {
+            console.error('Failed to load from Firestore:', e);
+        }
+        return null;
     }
 
     function saveState() {
+        // Keep localStorage as offline fallback
         localStorage.setItem(STATE_KEY, JSON.stringify(state));
+
+        if (!currentWorkspaceId) return;
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(function () {
+            db.collection('workspaces').doc(currentWorkspaceId).set({
+                ownerId: currentWorkspaceId === auth.currentUser.uid ? auth.currentUser.uid : undefined,
+                ownerEmail: undefined, // preserve existing
+                tasks: state.tasks,
+                members: state.members,
+                activityLog: state.activityLog,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true }).catch(function (err) {
+                console.error('Save failed:', err);
+            });
+        }, 500);
+    }
+
+    function listenToWorkspace(workspaceId) {
+        if (snapshotUnsubscribe) snapshotUnsubscribe();
+        snapshotUnsubscribe = db.collection('workspaces').doc(workspaceId).onSnapshot(function (doc) {
+            if (doc.exists && !doc.metadata.hasPendingWrites) {
+                const data = doc.data();
+                state.tasks = data.tasks || [];
+                state.members = data.members || [];
+                state.activityLog = data.activityLog || [];
+                renderDashboard();
+                renderBoard();
+            }
+        });
     }
 
     function generateId() {
@@ -720,7 +772,201 @@
         return days + 'd ago';
     }
 
+    // ─── Migration ─────────────────────────────────────────
+    async function handleMigration(uid) {
+        const firestoreData = await loadStateFromFirestore(uid);
+        const localData = loadLocalState();
+
+        if (firestoreData) {
+            // Cloud data exists — use it
+            state = firestoreData;
+            return;
+        }
+
+        if (localData && (localData.tasks.length > 0 || localData.members.length > 0)) {
+            // No cloud data but local data exists — prompt import
+            return new Promise(function (resolve) {
+                const modal = document.getElementById('modal-migrate');
+                modal.classList.add('active');
+
+                document.getElementById('btn-migrate-import').onclick = async function () {
+                    state = localData;
+                    await db.collection('workspaces').doc(uid).set({
+                        ownerId: uid,
+                        ownerEmail: currentUserEmail,
+                        tasks: state.tasks,
+                        members: state.members,
+                        activityLog: state.activityLog,
+                        sharedWith: [],
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
+                    localStorage.setItem(STATE_KEY + '_migrated', localStorage.getItem(STATE_KEY));
+                    modal.classList.remove('active');
+                    resolve();
+                };
+
+                document.getElementById('btn-migrate-skip').onclick = async function () {
+                    state = defaultState();
+                    await db.collection('workspaces').doc(uid).set({
+                        ownerId: uid,
+                        ownerEmail: currentUserEmail,
+                        tasks: [],
+                        members: [],
+                        activityLog: [],
+                        sharedWith: [],
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
+                    modal.classList.remove('active');
+                    resolve();
+                };
+            });
+        }
+
+        // No data anywhere — create empty workspace
+        state = defaultState();
+        await db.collection('workspaces').doc(uid).set({
+            ownerId: uid,
+            ownerEmail: currentUserEmail,
+            tasks: [],
+            members: [],
+            activityLog: [],
+            sharedWith: [],
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+
+    // ─── Sharing ─────────────────────────────────────────────
+    const modalShare = document.getElementById('modal-share');
+    const formShare = document.getElementById('form-share');
+    const btnShareWorkspace = document.getElementById('btn-share-workspace');
+    const modalShareClose = document.getElementById('modal-share-close');
+
+    btnShareWorkspace.addEventListener('click', function () {
+        renderSharedUsers();
+        modalShare.classList.add('active');
+    });
+    modalShareClose.addEventListener('click', function () {
+        modalShare.classList.remove('active');
+    });
+    modalShare.addEventListener('click', function (e) {
+        if (e.target === modalShare) modalShare.classList.remove('active');
+    });
+
+    formShare.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const email = document.getElementById('share-email').value.trim();
+        if (!email || !currentWorkspaceId) return;
+
+        db.collection('workspaces').doc(currentWorkspaceId).update({
+            sharedWith: firebase.firestore.FieldValue.arrayUnion(email)
+        }).then(function () {
+            document.getElementById('share-email').value = '';
+            logActivity('Shared workspace with ' + email);
+            renderSharedUsers();
+        }).catch(function (err) {
+            alert('Failed to share: ' + err.message);
+        });
+    });
+
+    function renderSharedUsers() {
+        const list = document.getElementById('shared-users-list');
+        db.collection('workspaces').doc(currentWorkspaceId).get().then(function (doc) {
+            if (!doc.exists) return;
+            const shared = doc.data().sharedWith || [];
+            if (shared.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-secondary);font-size:0.85rem;margin-top:12px">Not shared with anyone yet.</p>';
+                return;
+            }
+            list.innerHTML = '<h4 style="margin-top:16px;margin-bottom:8px;font-size:0.9rem">Shared with</h4>' +
+                shared.map(function (email) {
+                    return '<div class="shared-user-item">' +
+                        '<span>' + escapeHtml(email) + '</span>' +
+                        '<button class="btn btn-small btn-danger" data-unshare="' + escapeHtml(email) + '">&times;</button>' +
+                        '</div>';
+                }).join('');
+
+            list.querySelectorAll('[data-unshare]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var emailToRemove = btn.dataset.unshare;
+                    db.collection('workspaces').doc(currentWorkspaceId).update({
+                        sharedWith: firebase.firestore.FieldValue.arrayRemove(emailToRemove)
+                    }).then(function () {
+                        logActivity('Removed sharing with ' + emailToRemove);
+                        renderSharedUsers();
+                    });
+                });
+            });
+        });
+    }
+
+    // ─── Workspace Switcher ──────────────────────────────────
+    const workspaceSwitcher = document.getElementById('workspace-switcher');
+    const workspaceSelect = document.getElementById('workspace-select');
+
+    async function loadSharedWorkspaces(userEmail, uid) {
+        const options = [{ id: uid, label: 'My Workspace' }];
+
+        try {
+            const snap = await db.collection('workspaces')
+                .where('sharedWith', 'array-contains', userEmail)
+                .get();
+            snap.docs.forEach(function (doc) {
+                if (doc.id !== uid) {
+                    options.push({
+                        id: doc.id,
+                        label: (doc.data().ownerEmail || 'Shared') + "'s workspace"
+                    });
+                }
+            });
+        } catch (e) {
+            console.error('Failed to load shared workspaces:', e);
+        }
+
+        if (options.length > 1) {
+            workspaceSelect.innerHTML = options.map(function (opt) {
+                var selected = opt.id === currentWorkspaceId ? ' selected' : '';
+                return '<option value="' + opt.id + '"' + selected + '>' + escapeHtml(opt.label) + '</option>';
+            }).join('');
+            workspaceSwitcher.style.display = 'block';
+        } else {
+            workspaceSwitcher.style.display = 'none';
+        }
+    }
+
+    workspaceSelect.addEventListener('change', async function () {
+        const newId = workspaceSelect.value;
+        if (newId === currentWorkspaceId) return;
+
+        currentWorkspaceId = newId;
+        isWorkspaceOwner = (newId === auth.currentUser.uid);
+        btnShareWorkspace.style.display = isWorkspaceOwner ? 'block' : 'none';
+
+        const data = await loadStateFromFirestore(newId);
+        state = data || defaultState();
+        listenToWorkspace(newId);
+        renderDashboard();
+        renderBoard();
+    });
+
     // ─── Init ───────────────────────────────────────────────
-    renderDashboard();
-    renderBoard();
+    window.addEventListener('auth-ready', async function (e) {
+        const uid = e.detail.uid;
+        currentUserEmail = e.detail.email;
+        currentWorkspaceId = uid;
+        isWorkspaceOwner = true;
+
+        await handleMigration(uid);
+
+        // Show share button for own workspace
+        btnShareWorkspace.style.display = 'block';
+
+        // Load shared workspaces
+        loadSharedWorkspaces(currentUserEmail, uid);
+
+        // Listen for real-time updates
+        listenToWorkspace(uid);
+
+        renderDashboard();
+        renderBoard();
+    });
 })();
