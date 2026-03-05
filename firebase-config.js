@@ -2,12 +2,12 @@
 // Replace these values with your Firebase project settings
 // Get them from: https://console.firebase.google.com > Project Settings > General > Your apps
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDD8pg2EzgRSzN9bcx-iMmHsFG2BOMW8PU",
+    authDomain: "note-484b0.firebaseapp.com",
+    projectId: "note-484b0",
+    storageBucket: "note-484b0.firebasestorage.app",
+    messagingSenderId: "226022818324",
+    appId: "1:226022818324:web:428fa3f0d51f57acf21d01"
 };
 
 firebase.initializeApp(firebaseConfig);
