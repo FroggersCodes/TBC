@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - Smart Task Management</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h1>TaskFlow</h1>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#" data-view="dashboard" class="active">Dashboard</a></li>
+            <li><a href="#" data-view="board">Task Board</a></li>
+            <li><a href="#" data-view="calendar">Load Calendar</a></li>
+            <li><a href="#" data-view="delegation">Delegation</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <!-- Dashboard View -->
+        <section id="view-dashboard" class="view active">
+            <h2>Dashboard</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-total">0</span>
+                    <span class="stat-label">Total Tasks</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-todo">0</span>
+                    <span class="stat-label">To Do</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-progress">0</span>
+                    <span class="stat-label">In Progress</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-done">0</span>
+                    <span class="stat-label">Done</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-hours">0h</span>
+                    <span class="stat-label">Total Estimated</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-completed-hours">0h</span>
+                    <span class="stat-label">Hours Completed</span>
+                </div>
+            </div>
+            <div class="dashboard-charts">
+                <div class="chart-card">
+                    <h3>Task Distribution</h3>
+                    <div id="distribution-chart" class="chart-area"></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Recent Activity</h3>
+                    <div id="activity-feed" class="activity-feed"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Board View -->
+        <section id="view-board" class="view">
+            <div class="board-header">
+                <h2>Task Board</h2>
+                <button class="btn btn-primary" id="btn-add-task">+ New Task</button>
+            </div>
+            <div class="kanban-board">
+                <div class="kanban-column" data-status="todo">
+                    <div class="column-header">
+                        <h3>To Do</h3>
+                        <span class="column-count" id="count-todo">0</span>
+                    </div>
+                    <div class="column-body" data-status="todo"></div>
+                </div>
+                <div class="kanban-column" data-status="in-progress">
+                    <div class="column-header">
+                        <h3>In Progress</h3>
+                        <span class="column-count" id="count-in-progress">0</span>
+                    </div>
+                    <div class="column-body" data-status="in-progress"></div>
+                </div>
+                <div class="kanban-column" data-status="review">
+                    <div class="column-header">
+                        <h3>Review</h3>
+                        <span class="column-count" id="count-review">0</span>
+                    </div>
+                    <div class="column-body" data-status="review"></div>
+                </div>
+                <div class="kanban-column" data-status="done">
+                    <div class="column-header">
+                        <h3>Done</h3>
+                        <span class="column-count" id="count-done">0</span>
+                    </div>
+                    <div class="column-body" data-status="done"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Calendar View -->
+        <section id="view-calendar" class="view">
+            <div class="board-header">
+                <h2>Predictive Load Calendar</h2>
+                <div class="calendar-nav">
+                    <button class="btn" id="btn-prev-week">&lt; Prev</button>
+                    <span id="calendar-week-label"></span>
+                    <button class="btn" id="btn-next-week">Next &gt;</button>
+                </div>
+            </div>
+            <div id="calendar-suggestions" class="suggestions-bar"></div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+        </section>
+
+        <!-- Delegation View -->
+        <section id="view-delegation" class="view">
+            <div class="board-header">
+                <h2>Task Sharing &amp; Delegation</h2>
+                <button class="btn btn-primary" id="btn-add-member">+ Add Team Member</button>
+            </div>
+            <div id="team-members" class="team-grid"></div>
+            <div class="delegation-panel">
+                <h3>Unassigned Tasks</h3>
+                <div id="unassigned-tasks" class="task-list"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- New Task Modal -->
+    <div class="modal-overlay" id="modal-task">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-task-title">New Task</h3>
+                <button class="modal-close" id="modal-task-close">&times;</button>
+            </div>
+            <form id="form-task">
+                <div class="form-group">
+                    <label for="task-title">Title</label>
+                    <input type="text" id="task-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="task-description">Description</label>
+                    <textarea id="task-description" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="task-estimate">Time Estimate (hours)</label>
+                        <input type="number" id="task-estimate" min="0.5" step="0.5" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="task-priority">Priority</label>
+                        <select id="task-priority">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="task-due">Due Date</label>
+                    <input type="date" id="task-due">
+                </div>
+                <div class="form-group">
+                    <label for="task-assignee">Assign To</label>
+                    <select id="task-assignee">
+                        <option value="">Unassigned</option>
+                    </select>
+                </div>
+                <div class="form-group ai-breakdown-group">
+                    <button type="button" class="btn btn-secondary" id="btn-ai-breakdown">AI Task Breakdown</button>
+                    <div id="ai-subtasks" class="ai-subtasks"></div>
+                </div>
+                <input type="hidden" id="task-id">
+                <input type="hidden" id="task-status" value="todo">
+                <div class="form-actions">
+                    <button type="button" class="btn" id="btn-cancel-task">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div class="modal-overlay" id="modal-member">
+        <div class="modal modal-small">
+            <div class="modal-header">
+                <h3>Add Team Member</h3>
+                <button class="modal-close" id="modal-member-close">&times;</button>
+            </div>
+            <form id="form-member">
+                <div class="form-group">
+                    <label for="member-name">Name</label>
+                    <input type="text" id="member-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="member-capacity">Weekly Capacity (hours)</label>
+                    <input type="number" id="member-capacity" min="1" max="60" value="40">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn" id="btn-cancel-member">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
